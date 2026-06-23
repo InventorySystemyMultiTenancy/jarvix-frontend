@@ -18,6 +18,7 @@
         <button class="nav" data-view="devices">Dispositivos</button>
         <button class="nav" data-view="reminders">Alertas</button>
         <button class="nav" data-view="routines">Rotinas</button>
+        <button class="nav" data-view="media">Músicas</button>
         <button class="nav" data-view="integrations">Integrações</button>
       </nav>
       <a id="desktopDownload" class="download-card" href="#" target="_blank" rel="noopener">
@@ -70,6 +71,10 @@
         <article class="panel wide" data-view-section="integrations">
           <div class="panel-head"><div><p class="eyebrow">SERVIÇOS</p><h3>Integrações</h3></div></div>
           <div id="integrationList" class="integrations"></div>
+        </article>
+        <article class="panel wide" data-view-section="media">
+          <div class="panel-head"><div><p class="eyebrow">BIBLIOTECA</p><h3>Músicas e álbuns</h3></div><button data-modal="media">+ Adicionar</button></div>
+          <div id="mediaList" class="device-grid"></div>
         </article>
       </section>
     </main>

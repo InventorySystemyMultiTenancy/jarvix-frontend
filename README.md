@@ -16,6 +16,9 @@ configure `VITE_API_URL` com a URL pública do backend antes do build.
 Configure `VITE_DESKTOP_DOWNLOAD_URL` com a URL da release ou do instalador do
 Jarvix para controlar o botão "Baixar Jarvix".
 
+Dispositivos, alertas, rotinas e a biblioteca musical ficam no backend. O
+aplicativo desktop sincronizado consulta esses dados e mantém uma cópia offline.
+
 ## Build
 
 ```powershell

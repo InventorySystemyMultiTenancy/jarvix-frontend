@@ -8,6 +8,7 @@ const viewTitles = {
   devices: ["CASA CONECTADA", "Seus dispositivos"],
   reminders: ["ORGANIZAÇÃO", "Alertas e atividades"],
   routines: ["AUTOMAÇÃO", "Suas rotinas"],
+  media: ["BIBLIOTECA", "Músicas e álbuns"],
   integrations: ["SERVIÇOS", "Integrações do Jarvix"],
 };
 
@@ -33,7 +34,7 @@ function formatDate(value) {
 
 async function loadDashboard() {
   state.dashboard = await api("/api/dashboard");
-  const { summary, reminders, routines, devices, integrations } = state.dashboard;
+  const { summary, reminders, routines, devices, integrations, media = [] } = state.dashboard;
   $("#devicesOnline").textContent = summary.devices_online;
   $("#pendingReminders").textContent = summary.pending_reminders;
   $("#activeRoutines").textContent = summary.active_routines;
@@ -50,6 +51,11 @@ async function loadDashboard() {
     <div class="integration"><strong>${escapeHtml(item.display_name)}</strong>
     <span>${item.status === "connected" ? "Conectado" : "Aguardando configuração oficial"}</span>
     <button class="integration-action" data-provider="${escapeHtml(item.display_name)}">${item.status === "connected" ? "Gerenciar" : "Configurar"}</button></div>`).join("");
+  $("#mediaList").innerHTML = media.length ? media.map(item => `
+    <div class="device"><strong>${escapeHtml(item.title)}</strong>
+    <span>${escapeHtml(item.artist || "Artista não informado")} · ${escapeHtml(item.album || item.media_type)}</span>
+    <button onclick="removeItem('media',${item.id})">Remover</button></div>`).join("")
+    : `<p class="empty">Adicione músicas, álbuns ou playlists para o Jarvix lembrar.</p>`;
 
   document.querySelectorAll(".integration-action").forEach(button => {
     button.addEventListener("click", () => {
@@ -113,6 +119,14 @@ const fieldSets = {
       ["name", "Nome", "text", "Luz do escritório"],
       ["kind", "Tipo", "text", "Lâmpada"],
       ["room", "Cômodo", "text", "Escritório"],
+    ],
+  },
+  media: {
+    title: "Adicionar à biblioteca", endpoint: "/api/media",
+    fields: [
+      ["title", "Título", "text", "Back in Black"],
+      ["artist", "Artista", "text", "AC/DC"],
+      ["album", "Álbum ou playlist", "text", "Back in Black"],
     ],
   },
 };
