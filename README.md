@@ -19,7 +19,7 @@ Configure antes do build:
 
 ```env
 VITE_API_BASE=https://seu-backend.onrender.com
-VITE_DESKTOP_DOWNLOAD_URL=/Jarvix.exe
+VITE_DESKTOP_DOWNLOAD_URL=/jarvis-builder/README.txt
 ```
 
 No backend, inclua o domínio público do frontend em `JARVIX_ALLOWED_ORIGINS`.

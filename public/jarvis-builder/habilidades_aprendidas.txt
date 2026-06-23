@@ -1,0 +1,6 @@
+Jarvis Builder
+
+- O aplicativo final deve usar memória local em disco e também sincronizar com a central.
+- Alertas, músicas e comandos do Home Assistant precisam ser enviados ao banco do usuário.
+- O comando de geração usa PyInstaller em modo onedir.
+- O usuário precisa baixar os arquivos primeiro e depois executar o gerador localmente.
