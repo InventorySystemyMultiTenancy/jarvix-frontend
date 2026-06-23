@@ -52,6 +52,25 @@ function formatDate(value) {
   return new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeStyle: "short" }).format(new Date(value));
 }
 
+function homeAssistantControls(item) {
+  const metadata = item.metadata || {};
+  if (metadata.integration !== "home_assistant") return "";
+  const domain = metadata.domain || (metadata.entity_id || "").split(".")[0];
+  const commands = ["light", "switch", "fan", "media_player"].includes(domain)
+    ? [["turn_on", "Ligar"], ["turn_off", "Desligar"], ["toggle", "Alternar"]]
+    : domain === "cover"
+      ? [["open", "Abrir"], ["close", "Fechar"]]
+      : domain === "lock"
+        ? [["open", "Destravar"], ["close", "Travar"]]
+        : domain === "vacuum"
+          ? [["turn_on", "Iniciar"], ["turn_off", "Base"]]
+          : [];
+  if (!commands.length) return `<small>Entidade Home Assistant: ${escapeHtml(metadata.entity_id || "")}</small>`;
+  return `<div class="device-actions">${commands.map(([command, label]) =>
+    `<button onclick="commandDevice(${item.id},'${command}')">${label}</button>`
+  ).join("")}</div>`;
+}
+
 function showAuth(message = "") {
   $("#authScreen").hidden = false;
   $("#appShell").hidden = true;
@@ -124,11 +143,13 @@ async function loadDashboard() {
     <button onclick="removeItem('routines',${item.id})">×</button></div>`).join("") : `<p class="empty">Nenhuma rotina criada.</p>`;
   $("#deviceList").innerHTML = devices.length ? devices.map(item => `
     <div class="device"><i class="dot ${item.status === "online" ? "online" : ""}"></i><strong>${escapeHtml(item.name)}</strong>
-    <span>${escapeHtml(item.kind)} · ${escapeHtml(item.room || "Sem cômodo")}</span></div>`).join("") : `<p class="empty">Cadastre lâmpadas, computadores, hubs e outros dispositivos.</p>`;
+    <span>${escapeHtml(item.kind)} · ${escapeHtml(item.room || "Sem cômodo")}</span>
+    ${homeAssistantControls(item)}
+    <button onclick="removeItem('devices',${item.id})">Remover</button></div>`).join("") : `<p class="empty">Cadastre lâmpadas, computadores, hubs e outros dispositivos.</p>`;
   $("#integrationList").innerHTML = integrations.map(item => `
     <div class="integration"><strong>${escapeHtml(item.display_name)}</strong>
-    <span>${item.status === "connected" ? "Conectado" : "Aguardando configuração oficial"}</span>
-    <button class="integration-action" data-provider="${escapeHtml(item.display_name)}">${item.status === "connected" ? "Gerenciar" : "Configurar"}</button></div>`).join("");
+    <span>${item.status === "connected" ? `Conectado${item.config?.base_url ? ` em ${escapeHtml(item.config.base_url)}` : ""}` : "Aguardando configuração"}</span>
+    <button class="integration-action" data-provider="${escapeHtml(item.provider)}">${item.status === "connected" ? "Gerenciar" : "Configurar"}</button></div>`).join("");
   $("#mediaList").innerHTML = media.length ? media.map(item => `
     <div class="device"><strong>${escapeHtml(item.title)}</strong>
     <span>${escapeHtml(item.artist || "Artista não informado")} · ${escapeHtml(item.album || item.media_type)}</span>
@@ -137,7 +158,8 @@ async function loadDashboard() {
 
   document.querySelectorAll(".integration-action").forEach(button => {
     button.addEventListener("click", () => {
-      window.alert(`A conexão com ${button.dataset.provider} será liberada quando o conector oficial for configurado.`);
+      if (button.dataset.provider === "home_assistant") configureHomeAssistant();
+      else window.alert(`A conexão com ${button.dataset.provider} será liberada quando o conector oficial for configurado.`);
     });
   });
 }
@@ -186,6 +208,64 @@ window.removeItem = async (resource, id) => {
   await api(`/api/${resource}/${id}`, { method: "DELETE" });
   await loadDashboard();
 };
+
+window.commandDevice = async (id, command) => {
+  try {
+    await api(`/api/devices/${id}/command`, { method: "POST", body: JSON.stringify({ command }) });
+    $("#assistantText").textContent = "Comando enviado ao Home Assistant.";
+  } catch (error) {
+    window.alert(error.message || "Não foi possível controlar o dispositivo.");
+  }
+};
+
+async function configureHomeAssistant() {
+  const baseUrl = window.prompt("URL externa do Home Assistant. Use Nabu Casa, Cloudflare Tunnel ou outra URL pública HTTPS.", "https://sua-casa.ui.nabu.casa");
+  if (!baseUrl) return;
+  const tokenValue = window.prompt("Cole o Long-Lived Access Token do Home Assistant");
+  if (!tokenValue) return;
+  try {
+    $("#assistantText").textContent = "Conectando ao Home Assistant...";
+    await api("/api/integrations/home-assistant", {
+      method: "POST",
+      body: JSON.stringify({ base_url: baseUrl, token: tokenValue }),
+    });
+    $("#assistantText").textContent = "Home Assistant conectado. Agora você pode importar entidades.";
+    await loadDashboard();
+  } catch (error) {
+    window.alert(error.message || "Não foi possível conectar ao Home Assistant.");
+  }
+}
+
+async function importHomeAssistantEntity() {
+  try {
+    const { entities } = await api("/api/integrations/home-assistant/entities");
+    if (!entities.length) {
+      window.alert("Nenhuma entidade compatível encontrada. Procure por luzes, switches, fans, covers, locks, media players ou aspiradores.");
+      return;
+    }
+    const preview = entities.slice(0, 40).map((entity, index) =>
+      `${index + 1}. ${entity.name} (${entity.entity_id}) - ${entity.state}`
+    ).join("\n");
+    const choice = window.prompt(`Escolha o número da entidade para importar:\n\n${preview}`);
+    if (!choice) return;
+    const entity = entities[Number(choice) - 1];
+    if (!entity) {
+      window.alert("Número inválido.");
+      return;
+    }
+    const room = window.prompt("Cômodo desse dispositivo", "");
+    await api("/api/integrations/home-assistant/import", {
+      method: "POST",
+      body: JSON.stringify({ entity_id: entity.entity_id, name: entity.name, room: room || "" }),
+    });
+    $("#assistantText").textContent = `${entity.name} foi importado para seus dispositivos.`;
+    await loadDashboard();
+  } catch (error) {
+    window.alert(error.message || "Não foi possível importar entidades do Home Assistant.");
+  }
+}
+
+$("#importHomeAssistant").addEventListener("click", importHomeAssistantEntity);
 
 const fieldSets = {
   reminder: {

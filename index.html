@@ -99,7 +99,13 @@
           <div id="routineList" class="list"></div>
         </article>
         <article class="panel wide" data-view-section="devices">
-          <div class="panel-head"><div><p class="eyebrow">CASA CONECTADA</p><h3>Dispositivos</h3></div><button data-modal="device">+ Cadastrar</button></div>
+          <div class="panel-head">
+            <div><p class="eyebrow">CASA CONECTADA</p><h3>Dispositivos</h3></div>
+            <div class="panel-actions">
+              <button id="importHomeAssistant" type="button">Importar Home Assistant</button>
+              <button data-modal="device">+ Cadastrar</button>
+            </div>
+          </div>
           <div id="deviceList" class="device-grid"></div>
         </article>
         <article class="panel wide" data-view-section="integrations">
