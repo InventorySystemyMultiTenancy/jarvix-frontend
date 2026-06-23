@@ -1,0 +1,9 @@
+{
+  "name": "Jarvix Assistente",
+  "short_name": "Jarvix",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#06100e",
+  "theme_color": "#07110f",
+  "description": "Central pessoal do assistente Jarvix"
+}

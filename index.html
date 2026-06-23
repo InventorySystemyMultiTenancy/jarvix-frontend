@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#07110f">
+  <title>Jarvix</title>
+  <link rel="manifest" href="/manifest.webmanifest">
+  <link rel="stylesheet" href="/src/styles.css">
+  <script type="module" src="/src/app.js"></script>
+</head>
+<body>
+  <div class="shell">
+    <aside>
+      <a class="brand" href="#"><span class="brand-mark">J</span><span>JARVIX</span></a>
+      <nav>
+        <button class="nav active" data-view="home">Visão geral</button>
+        <button class="nav" data-view="devices">Dispositivos</button>
+        <button class="nav" data-view="reminders">Alertas</button>
+        <button class="nav" data-view="routines">Rotinas</button>
+        <button class="nav" data-view="integrations">Integrações</button>
+      </nav>
+      <div class="plan"><small>PLANO ATUAL</small><strong>Jarvix Preview</strong><span>MVP local</span></div>
+    </aside>
+
+    <main>
+      <header>
+        <div><p class="eyebrow">CENTRAL PESSOAL</p><h1>Bom dia, senhor.</h1></div>
+        <div class="status"><span></span> Jarvix online</div>
+      </header>
+
+      <section class="hero">
+        <div class="orb-wrap">
+          <button id="voiceButton" class="orb" aria-label="Falar com Jarvix"><i></i><b></b></button>
+          <span id="voiceState">Toque para falar</span>
+        </div>
+        <div class="conversation">
+          <p class="eyebrow">CONVERSE COM O JARVIX</p>
+          <h2 id="assistantText">Estou pronto para organizar seu dia.</h2>
+          <form id="chatForm">
+            <input id="chatInput" autocomplete="off" placeholder="Digite um pedido...">
+            <button type="submit">Enviar</button>
+          </form>
+        </div>
+      </section>
+
+      <section class="metrics">
+        <article><span>Dispositivos online</span><strong id="devicesOnline">0</strong></article>
+        <article><span>Alertas pendentes</span><strong id="pendingReminders">0</strong></article>
+        <article><span>Rotinas ativas</span><strong id="activeRoutines">0</strong></article>
+      </section>
+
+      <section class="grid">
+        <article class="panel">
+          <div class="panel-head"><div><p class="eyebrow">PRÓXIMOS</p><h3>Alertas e atividades</h3></div><button data-modal="reminder">+ Adicionar</button></div>
+          <div id="reminderList" class="list"></div>
+        </article>
+        <article class="panel">
+          <div class="panel-head"><div><p class="eyebrow">AUTOMAÇÃO</p><h3>Rotinas</h3></div><button data-modal="routine">+ Criar</button></div>
+          <div id="routineList" class="list"></div>
+        </article>
+        <article class="panel wide">
+          <div class="panel-head"><div><p class="eyebrow">CASA CONECTADA</p><h3>Dispositivos</h3></div><button data-modal="device">+ Cadastrar</button></div>
+          <div id="deviceList" class="device-grid"></div>
+        </article>
+        <article class="panel wide">
+          <div class="panel-head"><div><p class="eyebrow">SERVIÇOS</p><h3>Integrações</h3></div></div>
+          <div id="integrationList" class="integrations"></div>
+        </article>
+      </section>
+    </main>
+  </div>
+
+  <dialog id="editor">
+    <form id="editorForm" method="dialog">
+      <div class="modal-head"><h3 id="modalTitle">Adicionar</h3><button value="cancel" class="close">×</button></div>
+      <div id="modalFields"></div>
+      <button id="saveButton" class="primary" value="default">Salvar</button>
+    </form>
+  </dialog>
+</body>
+</html>
