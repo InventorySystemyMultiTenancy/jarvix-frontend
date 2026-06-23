@@ -13,6 +13,9 @@ npm run dev
 Por padrão, o frontend usa a API em `http://127.0.0.1:8765`. Em produção,
 configure `VITE_API_URL` com a URL pública do backend antes do build.
 
+Configure `VITE_DESKTOP_DOWNLOAD_URL` com a URL da release ou do instalador do
+Jarvix para controlar o botão "Baixar Jarvix".
+
 ## Build
 
 ```powershell

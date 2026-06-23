@@ -1,6 +1,15 @@
 const $ = (selector) => document.querySelector(selector);
 const state = { dashboard: null, modal: null };
 const API_BASE = (import.meta.env.VITE_API_URL || "http://127.0.0.1:8765").replace(/\/$/, "");
+const DOWNLOAD_URL = import.meta.env.VITE_DESKTOP_DOWNLOAD_URL
+  || "https://github.com/InventorySystemyMultiTenancy/jarvix-backend/releases/latest/download/Jarvix-Windows-x64.zip";
+const viewTitles = {
+  home: ["CENTRAL PESSOAL", "Bom dia, senhor."],
+  devices: ["CASA CONECTADA", "Seus dispositivos"],
+  reminders: ["ORGANIZAÇÃO", "Alertas e atividades"],
+  routines: ["AUTOMAÇÃO", "Suas rotinas"],
+  integrations: ["SERVIÇOS", "Integrações do Jarvix"],
+};
 
 async function api(path, options = {}) {
   const response = await fetch(`${API_BASE}${path}`, {
@@ -38,8 +47,44 @@ async function loadDashboard() {
     <div class="device"><i class="dot ${item.status === "online" ? "online" : ""}"></i><strong>${escapeHtml(item.name)}</strong>
     <span>${escapeHtml(item.kind)} · ${escapeHtml(item.room || "Sem cômodo")}</span></div>`).join("") : `<p class="empty">Cadastre lâmpadas, computadores, hubs e outros dispositivos.</p>`;
   $("#integrationList").innerHTML = integrations.map(item => `
-    <div class="integration"><strong>${escapeHtml(item.display_name)}</strong><span>${item.status === "connected" ? "Conectado" : "Aguardando configuração oficial"}</span></div>`).join("");
+    <div class="integration"><strong>${escapeHtml(item.display_name)}</strong>
+    <span>${item.status === "connected" ? "Conectado" : "Aguardando configuração oficial"}</span>
+    <button class="integration-action" data-provider="${escapeHtml(item.display_name)}">${item.status === "connected" ? "Gerenciar" : "Configurar"}</button></div>`).join("");
+
+  document.querySelectorAll(".integration-action").forEach(button => {
+    button.addEventListener("click", () => {
+      window.alert(`A conexão com ${button.dataset.provider} será liberada quando o conector oficial for configurado.`);
+    });
+  });
 }
+
+function selectView(view) {
+  const selectedView = viewTitles[view] ? view : "home";
+  document.querySelectorAll(".nav").forEach(button => {
+    button.classList.toggle("active", button.dataset.view === selectedView);
+  });
+  document.querySelectorAll("[data-view-section]").forEach(section => {
+    const isHome = selectedView === "home";
+    section.hidden = !isHome && section.dataset.viewSection !== selectedView;
+  });
+  $(".grid").classList.toggle("focused", selectedView !== "home");
+  const [eyebrow, title] = viewTitles[selectedView];
+  $("header .eyebrow").textContent = eyebrow;
+  $("header h1").textContent = title;
+  history.replaceState(null, "", selectedView === "home" ? location.pathname : `#${selectedView}`);
+  window.scrollTo({ top: 0, behavior: "smooth" });
+}
+
+document.querySelectorAll(".nav").forEach(button => {
+  button.addEventListener("click", () => selectView(button.dataset.view));
+});
+
+$(".brand").addEventListener("click", event => {
+  event.preventDefault();
+  selectView("home");
+});
+
+$("#desktopDownload").href = DOWNLOAD_URL;
 
 window.removeItem = async (resource, id) => {
   await api(`/api/${resource}/${id}`, { method: "DELETE" });
@@ -125,4 +170,5 @@ if (SpeechRecognition) {
 }
 
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("/sw.js");
+selectView(location.hash.replace("#", "") || "home");
 loadDashboard().catch(() => $("#assistantText").textContent = "Não foi possível carregar o painel.");

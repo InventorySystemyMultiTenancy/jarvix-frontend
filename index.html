@@ -20,6 +20,10 @@
         <button class="nav" data-view="routines">Rotinas</button>
         <button class="nav" data-view="integrations">Integrações</button>
       </nav>
+      <a id="desktopDownload" class="download-card" href="#" target="_blank" rel="noopener">
+        <span class="download-icon">↓</span>
+        <span><strong>Baixar Jarvix</strong><small>Aplicativo para Windows</small></span>
+      </a>
       <div class="plan"><small>PLANO ATUAL</small><strong>Jarvix Preview</strong><span>MVP local</span></div>
     </aside>
 
@@ -29,7 +33,7 @@
         <div class="status"><span></span> Jarvix online</div>
       </header>
 
-      <section class="hero">
+      <section class="hero" data-view-section="home">
         <div class="orb-wrap">
           <button id="voiceButton" class="orb" aria-label="Falar com Jarvix"><i></i><b></b></button>
           <span id="voiceState">Toque para falar</span>
@@ -44,26 +48,26 @@
         </div>
       </section>
 
-      <section class="metrics">
+      <section class="metrics" data-view-section="home">
         <article><span>Dispositivos online</span><strong id="devicesOnline">0</strong></article>
         <article><span>Alertas pendentes</span><strong id="pendingReminders">0</strong></article>
         <article><span>Rotinas ativas</span><strong id="activeRoutines">0</strong></article>
       </section>
 
       <section class="grid">
-        <article class="panel">
+        <article class="panel" data-view-section="reminders">
           <div class="panel-head"><div><p class="eyebrow">PRÓXIMOS</p><h3>Alertas e atividades</h3></div><button data-modal="reminder">+ Adicionar</button></div>
           <div id="reminderList" class="list"></div>
         </article>
-        <article class="panel">
+        <article class="panel" data-view-section="routines">
           <div class="panel-head"><div><p class="eyebrow">AUTOMAÇÃO</p><h3>Rotinas</h3></div><button data-modal="routine">+ Criar</button></div>
           <div id="routineList" class="list"></div>
         </article>
-        <article class="panel wide">
+        <article class="panel wide" data-view-section="devices">
           <div class="panel-head"><div><p class="eyebrow">CASA CONECTADA</p><h3>Dispositivos</h3></div><button data-modal="device">+ Cadastrar</button></div>
           <div id="deviceList" class="device-grid"></div>
         </article>
-        <article class="panel wide">
+        <article class="panel wide" data-view-section="integrations">
           <div class="panel-head"><div><p class="eyebrow">SERVIÇOS</p><h3>Integrações</h3></div></div>
           <div id="integrationList" class="integrations"></div>
         </article>
