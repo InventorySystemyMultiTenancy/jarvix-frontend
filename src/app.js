@@ -1,8 +1,10 @@
 const $ = (selector) => document.querySelector(selector);
-const state = { dashboard: null, modal: null };
-const API_BASE = (import.meta.env.VITE_API_URL || "http://127.0.0.1:8765").replace(/\/$/, "");
+const state = { dashboard: null, modal: null, user: null };
+const API_BASE = (import.meta.env.VITE_API_BASE || import.meta.env.VITE_API_URL || "http://127.0.0.1:8765").replace(/\/$/, "");
 const DOWNLOAD_URL = import.meta.env.VITE_DESKTOP_DOWNLOAD_URL
   || "https://github.com/InventorySystemyMultiTenancy/jarvix-backend/releases/latest/download/Jarvix-Windows-x64.zip";
+const TOKEN_KEY = "jarvix_access_token";
+
 const viewTitles = {
   home: ["CENTRAL PESSOAL", "Bom dia, senhor."],
   devices: ["CASA CONECTADA", "Seus dispositivos"],
@@ -12,12 +14,30 @@ const viewTitles = {
   integrations: ["SERVIÇOS", "Integrações do Jarvix"],
 };
 
+function token() {
+  return localStorage.getItem(TOKEN_KEY);
+}
+
+function setToken(value) {
+  if (value) localStorage.setItem(TOKEN_KEY, value);
+  else localStorage.removeItem(TOKEN_KEY);
+}
+
 async function api(path, options = {}) {
-  const response = await fetch(`${API_BASE}${path}`, {
-    headers: { "Content-Type": "application/json", ...(options.headers || {}) },
-    ...options,
-  });
-  if (!response.ok) throw new Error(await response.text());
+  const headers = { "Content-Type": "application/json", ...(options.headers || {}) };
+  if (token()) headers.Authorization = `Bearer ${token()}`;
+  const response = await fetch(`${API_BASE}${path}`, { ...options, headers });
+  if (response.status === 401) {
+    logout("Sessão expirada. Entre novamente.");
+    throw new Error("Não autorizado");
+  }
+  if (!response.ok) {
+    let message = await response.text();
+    try {
+      message = JSON.parse(message).detail || message;
+    } catch {}
+    throw new Error(message);
+  }
   return response.status === 204 ? null : response.json();
 }
 
@@ -30,6 +50,64 @@ function escapeHtml(value = "") {
 function formatDate(value) {
   if (!value) return "";
   return new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeStyle: "short" }).format(new Date(value));
+}
+
+function showAuth(message = "") {
+  $("#authScreen").hidden = false;
+  $("#appShell").hidden = true;
+  $("#authMessage").textContent = message;
+}
+
+function showApp() {
+  $("#authScreen").hidden = true;
+  $("#appShell").hidden = false;
+}
+
+function setAuthMode(mode) {
+  const isRegister = mode === "register";
+  $("#loginTab").classList.toggle("active", !isRegister);
+  $("#registerTab").classList.toggle("active", isRegister);
+  $("#loginForm").hidden = isRegister;
+  $("#registerForm").hidden = !isRegister;
+  $("#authMessage").textContent = "";
+}
+
+async function submitAuth(path, form) {
+  $("#authMessage").textContent = "Conectando...";
+  try {
+    const payload = Object.fromEntries(new FormData(form));
+    const result = await api(path, { method: "POST", body: JSON.stringify(payload) });
+    setToken(result.access_token);
+    state.user = result.user;
+    form.reset();
+    await startApp();
+  } catch (error) {
+    $("#authMessage").textContent = error.message || "Não foi possível entrar agora.";
+  }
+}
+
+function logout(message = "") {
+  setToken("");
+  state.user = null;
+  showAuth(message);
+}
+
+async function startApp() {
+  if (!token()) {
+    showAuth();
+    return;
+  }
+  try {
+    const result = await api("/api/auth/me");
+    state.user = result.user;
+    $("#currentUserName").textContent = state.user.name;
+    $("#currentUserEmail").textContent = state.user.email;
+    showApp();
+    selectView(location.hash.replace("#", "") || "home");
+    await loadDashboard();
+  } catch {
+    showAuth("Entre para acessar sua memória Jarvix.");
+  }
 }
 
 async function loadDashboard() {
@@ -89,6 +167,18 @@ $(".brand").addEventListener("click", event => {
   event.preventDefault();
   selectView("home");
 });
+
+$("#loginTab").addEventListener("click", () => setAuthMode("login"));
+$("#registerTab").addEventListener("click", () => setAuthMode("register"));
+$("#loginForm").addEventListener("submit", event => {
+  event.preventDefault();
+  submitAuth("/api/auth/login", event.currentTarget);
+});
+$("#registerForm").addEventListener("submit", event => {
+  event.preventDefault();
+  submitAuth("/api/auth/register", event.currentTarget);
+});
+$("#logoutButton").addEventListener("click", () => logout("Você saiu da sua conta Jarvix."));
 
 $("#desktopDownload").href = DOWNLOAD_URL;
 
@@ -184,5 +274,4 @@ if (SpeechRecognition) {
 }
 
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("/sw.js");
-selectView(location.hash.replace("#", "") || "home");
-loadDashboard().catch(() => $("#assistantText").textContent = "Não foi possível carregar o painel.");
+startApp();

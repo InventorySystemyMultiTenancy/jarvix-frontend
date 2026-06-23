@@ -1,6 +1,7 @@
 # Jarvix Frontend
 
-Painel web/PWA responsivo do assistente Jarvix.
+Painel web/PWA responsivo do assistente Jarvix, com login, cadastro e memória
+individual por cliente.
 
 ## Desenvolvimento
 
@@ -10,14 +11,18 @@ Copy-Item .env.example .env
 npm run dev
 ```
 
-Por padrão, o frontend usa a API em `http://127.0.0.1:8765`. Em produção,
-configure `VITE_API_URL` com a URL pública do backend antes do build.
+Por padrão, o frontend usa a API em `http://127.0.0.1:8765`.
 
-Configure `VITE_DESKTOP_DOWNLOAD_URL` com a URL da release ou do instalador do
-Jarvix para controlar o botão "Baixar Jarvix".
+## Produção
 
-Dispositivos, alertas, rotinas e a biblioteca musical ficam no backend. O
-aplicativo desktop sincronizado consulta esses dados e mantém uma cópia offline.
+Configure antes do build:
+
+```env
+VITE_API_BASE=https://seu-backend.onrender.com
+VITE_DESKTOP_DOWNLOAD_URL=https://github.com/InventorySystemyMultiTenancy/jarvix-backend/releases/latest/download/Jarvix-Windows-x64.zip
+```
+
+No backend, inclua o domínio público do frontend em `JARVIX_ALLOWED_ORIGINS`.
 
 ## Build
 
@@ -25,5 +30,5 @@ aplicativo desktop sincronizado consulta esses dados e mantém uma cópia offlin
 npm run build
 ```
 
-Os arquivos finais ficam em `dist/` e podem ser publicados em hospedagens
-estáticas como Cloudflare Pages, Vercel ou Netlify.
+Os arquivos finais ficam em `dist/` e podem ser publicados em hospedagens estáticas
+como Render Static Site, Cloudflare Pages, Vercel ou Netlify.

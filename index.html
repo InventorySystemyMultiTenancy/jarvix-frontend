@@ -10,7 +10,36 @@
   <script type="module" src="/src/app.js"></script>
 </head>
 <body>
-  <div class="shell">
+  <section id="authScreen" class="auth-screen">
+    <div class="auth-card">
+      <a class="brand auth-brand" href="#"><span class="brand-mark">J</span><span>JARVIX</span></a>
+      <p class="eyebrow">ASSISTENTE PESSOAL</p>
+      <h1>Entre na sua memória Jarvix</h1>
+      <p class="auth-copy">Cada cliente tem seus próprios dispositivos, alertas, rotinas, músicas e integrações sincronizados com segurança.</p>
+
+      <div class="auth-tabs">
+        <button id="loginTab" class="active" type="button">Entrar</button>
+        <button id="registerTab" type="button">Criar conta</button>
+      </div>
+
+      <form id="loginForm" class="auth-form">
+        <input name="email" type="email" autocomplete="email" placeholder="E-mail" required>
+        <input name="password" type="password" autocomplete="current-password" placeholder="Senha" required>
+        <button class="primary" type="submit">Entrar</button>
+      </form>
+
+      <form id="registerForm" class="auth-form" hidden>
+        <input name="name" autocomplete="name" placeholder="Nome" required minlength="2">
+        <input name="email" type="email" autocomplete="email" placeholder="E-mail" required>
+        <input name="password" type="password" autocomplete="new-password" placeholder="Senha com no mínimo 8 caracteres" required minlength="8">
+        <button class="primary" type="submit">Criar minha conta</button>
+      </form>
+
+      <p id="authMessage" class="auth-message"></p>
+    </div>
+  </section>
+
+  <div id="appShell" class="shell" hidden>
     <aside>
       <a class="brand" href="#"><span class="brand-mark">J</span><span>JARVIX</span></a>
       <nav>
@@ -25,7 +54,12 @@
         <span class="download-icon">↓</span>
         <span><strong>Baixar Jarvix</strong><small>Aplicativo para Windows</small></span>
       </a>
-      <div class="plan"><small>PLANO ATUAL</small><strong>Jarvix Preview</strong><span>MVP local</span></div>
+      <div class="plan">
+        <small>CONTA ATUAL</small>
+        <strong id="currentUserName">Jarvix Preview</strong>
+        <span id="currentUserEmail">Memória individual</span>
+        <button id="logoutButton" type="button">Sair</button>
+      </div>
     </aside>
 
     <main>
