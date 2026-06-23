@@ -55,8 +55,18 @@ function formatDate(value) {
 function homeAssistantControls(item) {
   const metadata = item.metadata || {};
   if (metadata.integration !== "home_assistant") return "";
+  const commands = metadata.commands?.length ? metadata.commands : fallbackHomeAssistantCommands(metadata);
+  if (!commands.length) return `<small>Entidade Home Assistant: ${escapeHtml(metadata.entity_id || "")}</small>`;
+  return `<div class="device-actions">${commands.map(command =>
+    Array.isArray(command)
+      ? `<button onclick="commandDevice(${item.id},'${command[0]}')">${escapeHtml(command[1])}</button>`
+      : `<button onclick="commandDevice(${item.id},'${command.command}')">${escapeHtml(command.label || command.command)}</button>`
+  ).join("")}</div>`;
+}
+
+function fallbackHomeAssistantCommands(metadata) {
   const domain = metadata.domain || (metadata.entity_id || "").split(".")[0];
-  const commands = ["light", "switch", "fan", "media_player"].includes(domain)
+  return ["light", "switch", "fan", "media_player", "climate"].includes(domain)
     ? [["turn_on", "Ligar"], ["turn_off", "Desligar"], ["toggle", "Alternar"]]
     : domain === "cover"
       ? [["open", "Abrir"], ["close", "Fechar"]]
@@ -64,11 +74,13 @@ function homeAssistantControls(item) {
         ? [["open", "Destravar"], ["close", "Travar"]]
         : domain === "vacuum"
           ? [["turn_on", "Iniciar"], ["turn_off", "Base"]]
-          : [];
-  if (!commands.length) return `<small>Entidade Home Assistant: ${escapeHtml(metadata.entity_id || "")}</small>`;
-  return `<div class="device-actions">${commands.map(([command, label]) =>
-    `<button onclick="commandDevice(${item.id},'${command}')">${label}</button>`
-  ).join("")}</div>`;
+          : ["button", "input_button"].includes(domain)
+            ? [["press", "Pressionar"]]
+            : domain === "automation"
+              ? [["trigger", "Disparar"], ["turn_on", "Ativar"], ["turn_off", "Desativar"]]
+              : ["scene", "script"].includes(domain)
+                ? [["turn_on", "Executar"]]
+                : [];
 }
 
 function showAuth(message = "") {
@@ -213,6 +225,7 @@ window.commandDevice = async (id, command) => {
   try {
     await api(`/api/devices/${id}/command`, { method: "POST", body: JSON.stringify({ command }) });
     $("#assistantText").textContent = "Comando enviado ao Home Assistant.";
+    await loadDashboard();
   } catch (error) {
     window.alert(error.message || "Não foi possível controlar o dispositivo.");
   }
@@ -266,6 +279,15 @@ async function importHomeAssistantEntity() {
 }
 
 $("#importHomeAssistant").addEventListener("click", importHomeAssistantEntity);
+$("#syncHomeAssistant").addEventListener("click", async () => {
+  try {
+    const result = await api("/api/integrations/home-assistant/sync", { method: "POST" });
+    $("#assistantText").textContent = `${result.synced} dispositivo(s) sincronizado(s) com o Home Assistant.`;
+    await loadDashboard();
+  } catch (error) {
+    window.alert(error.message || "Não foi possível sincronizar o Home Assistant.");
+  }
+});
 
 const fieldSets = {
   reminder: {
