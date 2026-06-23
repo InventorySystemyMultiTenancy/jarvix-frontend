@@ -2,7 +2,7 @@ const $ = (selector) => document.querySelector(selector);
 const state = { dashboard: null, modal: null, user: null };
 const API_BASE = (import.meta.env.VITE_API_BASE || import.meta.env.VITE_API_URL || "http://127.0.0.1:8765").replace(/\/$/, "");
 const DOWNLOAD_URL = import.meta.env.VITE_DESKTOP_DOWNLOAD_URL
-  || "https://github.com/InventorySystemyMultiTenancy/jarvix-backend/releases/latest/download/Jarvix-Windows-x64.zip";
+  || "https://github.com/InventorySystemyMultiTenancy/jarvix-backend/releases/latest/download/Jarvix-Windows-x64.exe";
 const TOKEN_KEY = "jarvix_access_token";
 
 const viewTitles = {

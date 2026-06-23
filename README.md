@@ -19,7 +19,7 @@ Configure antes do build:
 
 ```env
 VITE_API_BASE=https://seu-backend.onrender.com
-VITE_DESKTOP_DOWNLOAD_URL=https://github.com/InventorySystemyMultiTenancy/jarvix-backend/releases/latest/download/Jarvix-Windows-x64.zip
+VITE_DESKTOP_DOWNLOAD_URL=https://github.com/InventorySystemyMultiTenancy/jarvix-backend/releases/latest/download/Jarvix-Windows-x64.exe
 ```
 
 No backend, inclua o domínio público do frontend em `JARVIX_ALLOWED_ORIGINS`.
