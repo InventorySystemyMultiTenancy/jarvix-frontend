@@ -1,0 +1,10 @@
+pyinstaller>=6.14,<7
+openai>=1.68,<3
+python-dotenv>=1.0,<2
+requests>=2.32,<3
+chromadb>=1.0,<2
+numpy>=1.26,<3
+SpeechRecognition>=3.10,<4
+edge-tts>=7.0,<8
+pygame>=2.6,<3
+PyAudio>=0.2.14,<1

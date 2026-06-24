@@ -1,4 +1,4 @@
-const CACHE = "jarvix-shell-v2";
+const CACHE = "jarvix-shell-v3";
 
 self.addEventListener("install", (event) => {
   event.waitUntil(caches.open(CACHE).then((cache) => cache.addAll(["/"])));
