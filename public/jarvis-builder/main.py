@@ -5,6 +5,7 @@ from difflib import get_close_matches
 from urllib.parse import quote_plus, quote
 import os
 import sys
+import getpass
 import subprocess
 import requests
 import chromadb
@@ -61,6 +62,7 @@ PASTA_DADOS_JARVIS = r"C:\JarvisData"
 ARQUIVO_LEMBRETES = os.path.join(PASTA_DADOS_JARVIS, "lembretes.json")
 ARQUIVO_ANOTACOES = os.path.join(PASTA_DADOS_JARVIS, "anotacoes.json")
 ARQUIVO_MIDIA = os.path.join(PASTA_DADOS_JARVIS, "midia.json")
+ARQUIVO_CONFIG = os.path.join(PASTA_DADOS_JARVIS, "config.json")
 
 JARVIS_CENTRAL_URL = os.getenv("JARVIS_CENTRAL_URL", "http://127.0.0.1:8765").rstrip("/")
 JARVIS_CENTRAL_TOKEN = os.getenv("JARVIS_CENTRAL_TOKEN", "").strip()
@@ -70,6 +72,16 @@ JARVIS_PASSWORD = os.getenv("JARVIS_PASSWORD", "").strip()
 os.makedirs(PASTA_PROJETOS, exist_ok=True)
 os.makedirs(PASTA_MEMORIA, exist_ok=True)
 os.makedirs(PASTA_DADOS_JARVIS, exist_ok=True)
+
+try:
+    with open(ARQUIVO_CONFIG, "r", encoding="utf-8") as arquivo:
+        CONFIG_LOCAL = json.load(arquivo)
+except Exception:
+    CONFIG_LOCAL = {}
+
+JARVIS_CENTRAL_URL = (CONFIG_LOCAL.get("central_url") or JARVIS_CENTRAL_URL).rstrip("/")
+JARVIS_CENTRAL_TOKEN = (CONFIG_LOCAL.get("central_token") or JARVIS_CENTRAL_TOKEN).strip()
+JARVIS_EMAIL = (CONFIG_LOCAL.get("email") or JARVIS_EMAIL).strip()
 
 if not GITHUB_TOKEN:
     print("Aviso: GITHUB_TOKEN não encontrado no arquivo. Funções do GitHub não funcionarão.")
@@ -576,6 +588,41 @@ def salvar_json(caminho, dados):
         json.dump(dados, arquivo, ensure_ascii=False, indent=4)
 
 
+def salvar_config_central():
+    dados = {
+        "central_url": JARVIS_CENTRAL_URL,
+        "central_token": JARVIS_CENTRAL_TOKEN,
+        "email": JARVIS_EMAIL,
+        "salvo_em": datetime.now().strftime("%d/%m/%Y %H:%M:%S"),
+    }
+    with open(ARQUIVO_CONFIG, "w", encoding="utf-8") as arquivo:
+        json.dump(dados, arquivo, ensure_ascii=False, indent=4)
+
+
+def configurar_central_interativa():
+    global JARVIS_CENTRAL_URL, JARVIS_EMAIL, JARVIS_PASSWORD
+
+    print("\nPrimeira configuracao da central Jarvis.")
+    print("A chave OpenAI fica no servidor. Aqui sera salvo apenas o token da sua conta.")
+
+    try:
+        if not JARVIS_CENTRAL_URL or JARVIS_CENTRAL_URL.startswith("http://127.0.0.1"):
+            url = input("URL da central Jarvis: ").strip()
+            if url:
+                JARVIS_CENTRAL_URL = url.rstrip("/")
+
+        if not JARVIS_EMAIL:
+            JARVIS_EMAIL = input("E-mail da conta Jarvis: ").strip()
+
+        if not JARVIS_PASSWORD:
+            JARVIS_PASSWORD = getpass.getpass("Senha da conta Jarvis: ").strip()
+    except Exception as erro:
+        registrar_erro("configurar_central_interativa", erro)
+        return False
+
+    return bool(JARVIS_CENTRAL_URL and JARVIS_EMAIL and JARVIS_PASSWORD)
+
+
 def autenticar_central():
     global JARVIS_CENTRAL_TOKEN
 
@@ -583,7 +630,8 @@ def autenticar_central():
         return JARVIS_CENTRAL_TOKEN
 
     if not JARVIS_EMAIL or not JARVIS_PASSWORD:
-        return ""
+        if not configurar_central_interativa():
+            return ""
 
     try:
         resposta = requests.post(
@@ -596,6 +644,7 @@ def autenticar_central():
         JARVIS_CENTRAL_TOKEN = dados.get("access_token", "").strip()
         if JARVIS_CENTRAL_TOKEN:
             print("Jarvis conectado a central com login do usuario.")
+            salvar_config_central()
         return JARVIS_CENTRAL_TOKEN
     except Exception as erro:
         registrar_erro("autenticar_central", erro)
@@ -638,8 +687,7 @@ def perguntar_central(mensagem):
     if not autenticar_central():
         return (
             "Nao consegui conectar na central Jarvis. "
-            "Configure JARVIS_CENTRAL_URL e JARVIS_EMAIL/JARVIS_PASSWORD no .env, "
-            "ou JARVIS_CENTRAL_TOKEN se ja tiver um token."
+            "Na primeira execucao, informe a URL da central e o login da sua conta Jarvis no console."
         )
 
     try:

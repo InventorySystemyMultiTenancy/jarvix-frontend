@@ -224,7 +224,7 @@ window.removeItem = async (resource, id) => {
 window.commandDevice = async (id, command) => {
   try {
     await api(`/api/devices/${id}/command`, { method: "POST", body: JSON.stringify({ command }) });
-    $("#assistantText").textContent = "Comando enviado ao Home Assistant.";
+    appendChatMessage("bot", "Comando enviado ao Home Assistant.");
     await loadDashboard();
   } catch (error) {
     window.alert(error.message || "Não foi possível controlar o dispositivo.");
@@ -237,12 +237,12 @@ async function configureHomeAssistant() {
   const tokenValue = window.prompt("Cole o Long-Lived Access Token do Home Assistant");
   if (!tokenValue) return;
   try {
-    $("#assistantText").textContent = "Conectando ao Home Assistant...";
+    appendChatMessage("bot", "Conectando ao Home Assistant...");
     await api("/api/integrations/home-assistant", {
       method: "POST",
       body: JSON.stringify({ base_url: baseUrl, token: tokenValue }),
     });
-    $("#assistantText").textContent = "Home Assistant conectado. Agora você pode importar entidades.";
+    appendChatMessage("bot", "Home Assistant conectado. Agora você pode importar entidades.");
     await loadDashboard();
   } catch (error) {
     window.alert(error.message || "Não foi possível conectar ao Home Assistant.");
@@ -271,7 +271,7 @@ async function importHomeAssistantEntity() {
       method: "POST",
       body: JSON.stringify({ entity_id: entity.entity_id, name: entity.name, room: room || "" }),
     });
-    $("#assistantText").textContent = `${entity.name} foi importado para seus dispositivos.`;
+    appendChatMessage("bot", `${entity.name} foi importado para seus dispositivos.`);
     await loadDashboard();
   } catch (error) {
     window.alert(error.message || "Não foi possível importar entidades do Home Assistant.");
@@ -282,7 +282,7 @@ $("#importHomeAssistant").addEventListener("click", importHomeAssistantEntity);
 $("#syncHomeAssistant").addEventListener("click", async () => {
   try {
     const result = await api("/api/integrations/home-assistant/sync", { method: "POST" });
-    $("#assistantText").textContent = `${result.synced} dispositivo(s) sincronizado(s) com o Home Assistant.`;
+    appendChatMessage("bot", `${result.synced} dispositivo(s) sincronizado(s) com o Home Assistant.`);
     await loadDashboard();
   } catch (error) {
     window.alert(error.message || "Não foi possível sincronizar o Home Assistant.");
@@ -341,17 +341,37 @@ $("#editorForm").addEventListener("submit", async event => {
   await loadDashboard();
 });
 
-async function askJarvix(message) {
-  $("#assistantText").textContent = "Pensando...";
+function appendChatMessage(role, text, className = "") {
+  const item = document.createElement("div");
+  item.className = `chat-message ${role} ${className}`.trim();
+  item.textContent = text;
+  $("#chatMessages").appendChild(item);
+  $("#chatMessages").scrollTop = $("#chatMessages").scrollHeight;
+  return item;
+}
+
+function setHearingText(text) {
+  const element = $("#hearingText");
+  element.hidden = !text;
+  element.textContent = text ? `Ouvindo: ${text}` : "";
+}
+
+async function askJarvix(message, options = {}) {
+  const cleanMessage = message.trim();
+  if (!cleanMessage) return;
+  if (options.showUser !== false) appendChatMessage("user", cleanMessage);
+  const pending = appendChatMessage("bot", "Pensando...", "pending");
   try {
-    const result = await api("/api/assistant/chat", { method: "POST", body: JSON.stringify({ message }) });
-    $("#assistantText").textContent = result.text;
+    const result = await api("/api/assistant/chat", { method: "POST", body: JSON.stringify({ message: cleanMessage }) });
+    pending.classList.remove("pending");
+    pending.textContent = result.text;
     if ("speechSynthesis" in window) {
       speechSynthesis.cancel();
       speechSynthesis.speak(new SpeechSynthesisUtterance(result.text));
     }
   } catch {
-    $("#assistantText").textContent = "Não consegui responder agora. Verifique a configuração do servidor.";
+    pending.classList.remove("pending");
+    pending.textContent = "Não consegui responder agora. Verifique a configuração do servidor.";
   }
 }
 
@@ -367,6 +387,7 @@ if (SpeechRecognition) {
   const recognition = new SpeechRecognition();
   let voiceEnabled = false;
   let recognitionRunning = false;
+  let lastVoiceTranscript = "";
   recognition.lang = "pt-BR";
   recognition.continuous = true;
   recognition.interimResults = true;
@@ -385,6 +406,7 @@ if (SpeechRecognition) {
     } catch {}
     $("#voiceButton").classList.remove("listening");
     $("#voiceState").textContent = "Toque para falar";
+    setHearingText("");
   }
 
   function extractJarvixCommand(text) {
@@ -403,6 +425,7 @@ if (SpeechRecognition) {
     else {
       $("#voiceButton").classList.remove("listening");
       $("#voiceState").textContent = "Toque para falar";
+      setHearingText("");
     }
   };
   recognition.onerror = () => {
@@ -411,14 +434,22 @@ if (SpeechRecognition) {
   };
   recognition.onresult = event => {
     let transcript = "";
+    let interim = "";
     for (let index = event.resultIndex; index < event.results.length; index += 1) {
       if (event.results[index].isFinal) transcript += event.results[index][0].transcript;
+      else interim += event.results[index][0].transcript;
     }
     transcript = transcript.trim();
+    interim = interim.trim();
+    setHearingText(interim || transcript);
     if (!transcript) return;
+    if (transcript === lastVoiceTranscript) return;
+    lastVoiceTranscript = transcript;
     const command = extractJarvixCommand(transcript);
     if (!command && !/\b(jarvis|jarvix)\b/i.test(transcript)) return;
-    askJarvix(command || "Sim?");
+    setHearingText("");
+    appendChatMessage("user", transcript);
+    askJarvix(command || "Sim?", { showUser: false });
   };
   $("#voiceButton").addEventListener("click", () => {
     voiceEnabled = !voiceEnabled;

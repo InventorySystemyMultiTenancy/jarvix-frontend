@@ -8,15 +8,13 @@ Jarvis Builder
 5. Clique em "Gerar Jarvis" e acompanhe a barra de progresso.
 6. O executavel Jarvis ficara dentro da pasta dist\Jarvis.
 
-Para ativar a IA no Jarvis.exe com seguranca, crie um arquivo chamado .env na pasta do Builder
-antes de gerar, ou coloque esse arquivo depois em dist\Jarvis.
-Exemplo:
+Para ativar a IA no Jarvis.exe com seguranca, a chave OPENAI_API_KEY deve ficar
+somente no servidor/backend, nunca no Jarvis.exe.
 
-JARVIS_CENTRAL_URL=https://seu-servidor.com
-JARVIS_EMAIL=email_da_conta
-JARVIS_PASSWORD=senha_da_conta
+O usuario nao precisa editar .env. Na primeira execucao, o Jarvis.exe pede a URL
+da central Jarvis e o login da conta no console. Depois ele salva apenas o token
+em C:\JarvisData\config.json e entra automaticamente nas proximas execucoes.
 
-A chave OPENAI_API_KEY deve ficar somente no servidor/backend, nunca no Jarvis.exe.
 GITHUB_TOKEN e opcional e so deve ser usado se for um token do proprio usuario.
 
 Antes de gerar, deixe pelo menos 4 GB livres no disco C:.

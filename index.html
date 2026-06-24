@@ -75,7 +75,10 @@
         </div>
         <div class="conversation">
           <p class="eyebrow">CONVERSE COM O JARVIX</p>
-          <h2 id="assistantText">Estou pronto para organizar seu dia.</h2>
+          <div id="chatMessages" class="chat-messages" aria-live="polite">
+            <div class="chat-message bot">Estou pronto para organizar seu dia.</div>
+          </div>
+          <p id="hearingText" class="hearing" hidden></p>
           <form id="chatForm">
             <input id="chatInput" autocomplete="off" placeholder="Digite um pedido...">
             <button type="submit">Enviar</button>
