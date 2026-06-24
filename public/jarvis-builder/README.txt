@@ -7,6 +7,8 @@ Jarvis Builder
 4. Execute "Gerar Jarvis.vbs" para abrir a interface grafica sem tela preta.
 5. Clique em "Gerar Jarvis" e acompanhe a barra de progresso.
 6. O executavel Jarvis ficara dentro da pasta dist\Jarvis.
+7. Ao abrir o Jarvis.exe, ele mostra uma interface grafica moderna com chat,
+   microfone e resposta por voz. Ele nao roda mais em tela preta de CMD.
 
 Para ativar a IA no Jarvis.exe com seguranca, a chave OPENAI_API_KEY deve ficar
 somente no servidor/backend, nunca no Jarvis.exe.

@@ -100,9 +100,9 @@ class BuilderApp:
                 raise RuntimeError("Nao encontrei Python funcional. Instale Python 3 pelo site python.org.")
 
             self._log(f"Python base encontrado: {' '.join(base_python)}")
-            main_py = ROOT / "main.py"
-            if not main_py.exists():
-                raise RuntimeError(f"main.py nao encontrado em {ROOT}")
+            app_py = ROOT / "jarvis_app.py"
+            if not app_py.exists():
+                raise RuntimeError(f"jarvis_app.py nao encontrado em {ROOT}")
 
             self._check_free_space(MIN_FREE_BEFORE_INSTALL, "instalar as dependencias")
 
@@ -151,18 +151,13 @@ class BuilderApp:
                 str(VENV_PY),
                 "-m",
                 "PyInstaller",
+                "--windowed",
                 "--onedir",
                 "--name",
                 "Jarvis",
-                "--hidden-import",
-                "chromadb.telemetry.product.posthog",
-                "--collect-all",
-                "chromadb",
-                "--collect-all",
-                "numpy",
                 "--collect-all",
                 "pygame",
-                "main.py",
+                "jarvis_app.py",
             ]
             if ICON_PATH.exists():
                 args[3:3] = [f"--icon={ICON_PATH}"]
