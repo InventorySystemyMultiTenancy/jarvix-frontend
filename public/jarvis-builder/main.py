@@ -4,6 +4,7 @@ from datetime import datetime
 from difflib import get_close_matches
 from urllib.parse import quote_plus, quote
 import os
+import sys
 import subprocess
 import requests
 import chromadb
@@ -29,10 +30,29 @@ except ImportError:
 # CONFIGURAÇÕES
 # =========================
 
-load_dotenv()
+def carregar_env():
+    base_script = os.path.dirname(sys.executable if getattr(sys, "frozen", False) else __file__)
+    candidatos = [
+        os.path.join(os.getcwd(), ".env"),
+        os.path.join(base_script, ".env"),
+        os.path.join(os.path.dirname(base_script), ".env"),
+    ]
+
+    for caminho in candidatos:
+        if os.path.exists(caminho):
+            load_dotenv(caminho, override=False)
+            print(f"Configuracoes carregadas de: {caminho}")
+            return caminho
+
+    load_dotenv()
+    return None
+
+
+ENV_CARREGADO = carregar_env()
 
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 GITHUB_TOKEN = os.getenv("GITHUB_TOKEN")
+PERMITIR_OPENAI_LOCAL = os.getenv("JARVIS_ALLOW_LOCAL_OPENAI", "").lower() in {"1", "true", "sim", "yes"}
 
 PASTA_PROJETOS = r"C:\JarvisProjects"
 PASTA_MEMORIA = r"C:\JarvisMemory"
@@ -44,6 +64,8 @@ ARQUIVO_MIDIA = os.path.join(PASTA_DADOS_JARVIS, "midia.json")
 
 JARVIS_CENTRAL_URL = os.getenv("JARVIS_CENTRAL_URL", "http://127.0.0.1:8765").rstrip("/")
 JARVIS_CENTRAL_TOKEN = os.getenv("JARVIS_CENTRAL_TOKEN", "").strip()
+JARVIS_EMAIL = os.getenv("JARVIS_EMAIL", "").strip()
+JARVIS_PASSWORD = os.getenv("JARVIS_PASSWORD", "").strip()
 
 os.makedirs(PASTA_PROJETOS, exist_ok=True)
 os.makedirs(PASTA_MEMORIA, exist_ok=True)
@@ -52,10 +74,12 @@ os.makedirs(PASTA_DADOS_JARVIS, exist_ok=True)
 if not GITHUB_TOKEN:
     print("Aviso: GITHUB_TOKEN não encontrado no arquivo. Funções do GitHub não funcionarão.")
 
-if not OPENAI_API_KEY:
-    print("Aviso: OPENAI_API_KEY nao encontrada no arquivo .env. Recursos de IA ficarao indisponiveis.")
+if OPENAI_API_KEY and not PERMITIR_OPENAI_LOCAL:
+    print("Aviso: OPENAI_API_KEY foi encontrada, mas sera ignorada no Jarvis.exe por seguranca.")
+    print("A IA deve ser chamada pelo servidor em JARVIS_CENTRAL_URL.")
+    OPENAI_API_KEY = ""
 
-client = OpenAI(api_key=OPENAI_API_KEY) if OPENAI_API_KEY else None
+client = OpenAI(api_key=OPENAI_API_KEY) if OPENAI_API_KEY and PERMITIR_OPENAI_LOCAL else None
 
 # =========================
 # LOG / DEBUG
@@ -74,8 +98,8 @@ def registrar_erro(origem, erro):
 
 def openai_indisponivel():
     return (
-        "A chave OPENAI_API_KEY nao foi configurada. "
-        "Crie um arquivo .env na pasta do Jarvis com OPENAI_API_KEY=sua_chave para ativar a IA."
+        "A IA local esta desativada por seguranca. "
+        "Configure a central Jarvis no .env com JARVIS_CENTRAL_URL e JARVIS_EMAIL/JARVIS_PASSWORD."
     )
 
 
@@ -552,8 +576,35 @@ def salvar_json(caminho, dados):
         json.dump(dados, arquivo, ensure_ascii=False, indent=4)
 
 
+def autenticar_central():
+    global JARVIS_CENTRAL_TOKEN
+
+    if JARVIS_CENTRAL_TOKEN:
+        return JARVIS_CENTRAL_TOKEN
+
+    if not JARVIS_EMAIL or not JARVIS_PASSWORD:
+        return ""
+
+    try:
+        resposta = requests.post(
+            f"{JARVIS_CENTRAL_URL}/api/auth/login",
+            json={"email": JARVIS_EMAIL, "password": JARVIS_PASSWORD},
+            timeout=20,
+        )
+        resposta.raise_for_status()
+        dados = resposta.json()
+        JARVIS_CENTRAL_TOKEN = dados.get("access_token", "").strip()
+        if JARVIS_CENTRAL_TOKEN:
+            print("Jarvis conectado a central com login do usuario.")
+        return JARVIS_CENTRAL_TOKEN
+    except Exception as erro:
+        registrar_erro("autenticar_central", erro)
+        print("Nao foi possivel autenticar na central Jarvis:", erro)
+        return ""
+
+
 def cabecalhos_central():
-    if not JARVIS_CENTRAL_TOKEN:
+    if not autenticar_central():
         return None
 
     return {
@@ -563,7 +614,7 @@ def cabecalhos_central():
 
 
 def salvar_na_central(rota, dados):
-    if not JARVIS_CENTRAL_TOKEN:
+    if not autenticar_central():
         return {"ok": False, "motivo": "Token da central não configurado"}
 
     resposta = requests.post(
@@ -581,6 +632,29 @@ def salvar_na_central(rota, dados):
         return resposta.json()
     except Exception:
         return {"ok": True, "texto": resposta.text}
+
+
+def perguntar_central(mensagem):
+    if not autenticar_central():
+        return (
+            "Nao consegui conectar na central Jarvis. "
+            "Configure JARVIS_CENTRAL_URL e JARVIS_EMAIL/JARVIS_PASSWORD no .env, "
+            "ou JARVIS_CENTRAL_TOKEN se ja tiver um token."
+        )
+
+    try:
+        resposta = requests.post(
+            f"{JARVIS_CENTRAL_URL}/api/assistant/chat",
+            json={"message": mensagem},
+            headers=cabecalhos_central(),
+            timeout=60,
+        )
+        resposta.raise_for_status()
+        dados = resposta.json()
+        return dados.get("text") or "A central respondeu, mas nao retornou texto."
+    except Exception as erro:
+        registrar_erro("perguntar_central", erro)
+        return f"Nao consegui consultar a central Jarvis agora: {erro}"
 
 
 def criar_anotacao(titulo, conteudo):
@@ -1167,6 +1241,9 @@ funcoes_disponiveis = {
 
 def executar_jarvis(mensagem):
     global historico_conversa
+
+    if not PERMITIR_OPENAI_LOCAL:
+        return perguntar_central(mensagem)
 
     if client is None:
         return openai_indisponivel()

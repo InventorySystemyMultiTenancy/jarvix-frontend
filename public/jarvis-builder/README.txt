@@ -8,6 +8,17 @@ Jarvis Builder
 5. Clique em "Gerar Jarvis" e acompanhe a barra de progresso.
 6. O executavel Jarvis ficara dentro da pasta dist\Jarvis.
 
+Para ativar a IA no Jarvis.exe com seguranca, crie um arquivo chamado .env na pasta do Builder
+antes de gerar, ou coloque esse arquivo depois em dist\Jarvis.
+Exemplo:
+
+JARVIS_CENTRAL_URL=https://seu-servidor.com
+JARVIS_EMAIL=email_da_conta
+JARVIS_PASSWORD=senha_da_conta
+
+A chave OPENAI_API_KEY deve ficar somente no servidor/backend, nunca no Jarvis.exe.
+GITHUB_TOKEN e opcional e so deve ser usado se for um token do proprio usuario.
+
 Antes de gerar, deixe pelo menos 4 GB livres no disco C:.
 As dependencias do Jarvis sao grandes e o PyInstaller tambem precisa de espaco temporario.
 

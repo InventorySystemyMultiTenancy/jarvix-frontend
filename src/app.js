@@ -365,12 +365,70 @@ $("#chatForm").addEventListener("submit", event => {
 const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
 if (SpeechRecognition) {
   const recognition = new SpeechRecognition();
+  let voiceEnabled = false;
+  let recognitionRunning = false;
   recognition.lang = "pt-BR";
-  recognition.interimResults = false;
-  recognition.onstart = () => { $("#voiceButton").classList.add("listening"); $("#voiceState").textContent = "Ouvindo..."; };
-  recognition.onend = () => { $("#voiceButton").classList.remove("listening"); $("#voiceState").textContent = "Toque para falar"; };
-  recognition.onresult = event => askJarvix(event.results[0][0].transcript);
-  $("#voiceButton").addEventListener("click", () => recognition.start());
+  recognition.continuous = true;
+  recognition.interimResults = true;
+
+  function startVoiceLoop() {
+    if (!voiceEnabled || recognitionRunning) return;
+    try {
+      recognition.start();
+    } catch {}
+  }
+
+  function stopVoiceLoop() {
+    voiceEnabled = false;
+    try {
+      recognition.stop();
+    } catch {}
+    $("#voiceButton").classList.remove("listening");
+    $("#voiceState").textContent = "Toque para falar";
+  }
+
+  function extractJarvixCommand(text) {
+    const match = text.toLowerCase().match(/\b(jarvis|jarvix)\b(.*)$/i);
+    return match ? match[2].trim() : "";
+  }
+
+  recognition.onstart = () => {
+    recognitionRunning = true;
+    $("#voiceButton").classList.add("listening");
+    $("#voiceState").textContent = "Ouvindo Jarvis...";
+  };
+  recognition.onend = () => {
+    recognitionRunning = false;
+    if (voiceEnabled) window.setTimeout(startVoiceLoop, 250);
+    else {
+      $("#voiceButton").classList.remove("listening");
+      $("#voiceState").textContent = "Toque para falar";
+    }
+  };
+  recognition.onerror = () => {
+    recognitionRunning = false;
+    if (voiceEnabled) window.setTimeout(startVoiceLoop, 700);
+  };
+  recognition.onresult = event => {
+    let transcript = "";
+    for (let index = event.resultIndex; index < event.results.length; index += 1) {
+      if (event.results[index].isFinal) transcript += event.results[index][0].transcript;
+    }
+    transcript = transcript.trim();
+    if (!transcript) return;
+    const command = extractJarvixCommand(transcript);
+    if (!command && !/\b(jarvis|jarvix)\b/i.test(transcript)) return;
+    askJarvix(command || "Sim?");
+  };
+  $("#voiceButton").addEventListener("click", () => {
+    voiceEnabled = !voiceEnabled;
+    if (voiceEnabled) {
+      $("#voiceState").textContent = "Ouvindo Jarvis...";
+      startVoiceLoop();
+    } else {
+      stopVoiceLoop();
+    }
+  });
 } else {
   $("#voiceButton").addEventListener("click", () => $("#voiceState").textContent = "Reconhecimento de voz indisponível neste navegador");
 }

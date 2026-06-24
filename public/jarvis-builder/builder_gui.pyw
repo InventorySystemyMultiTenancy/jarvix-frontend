@@ -176,10 +176,10 @@ class BuilderApp:
             env_file = ROOT / ".env"
             final_env = ROOT / "dist" / "Jarvis" / ".env"
             if env_file.exists():
-                shutil.copy2(env_file, final_env)
-                self._log(f"Arquivo .env copiado para: {final_env}")
+                self._copy_runtime_env(env_file, final_env)
+                self._log(f"Arquivo .env seguro copiado para: {final_env}")
             else:
-                self._log("Arquivo .env nao encontrado na pasta do Builder. A IA pedira OPENAI_API_KEY ao abrir.")
+                self._log("Arquivo .env nao encontrado na pasta do Builder. Configure a central Jarvis em dist\\Jarvis\\.env.")
 
             self._step(100, "Jarvis gerado com sucesso.", str(ROOT / "dist" / "Jarvis"))
             self.messages.put(("done", True))
@@ -202,6 +202,17 @@ class BuilderApp:
             if code == 0:
                 return candidate
         return None
+
+    def _copy_runtime_env(self, source: Path, target: Path) -> None:
+        lines = source.read_text(encoding="utf-8", errors="ignore").splitlines()
+        allow_local_openai = any(line.strip().lower() in {"jarvis_allow_local_openai=1", "jarvis_allow_local_openai=true"} for line in lines)
+        safe_lines = []
+        for line in lines:
+            key = line.split("=", 1)[0].strip().upper() if "=" in line else ""
+            if key == "OPENAI_API_KEY" and not allow_local_openai:
+                continue
+            safe_lines.append(line)
+        target.write_text("\n".join(safe_lines) + "\n", encoding="utf-8")
 
     def _run(self, args: list[str], cwd: Path | None = None, check: bool = True) -> int:
         self._log(f"> {' '.join(map(str, args))}")
