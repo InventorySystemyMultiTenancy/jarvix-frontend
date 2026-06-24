@@ -2,6 +2,8 @@ const $ = (selector) => document.querySelector(selector);
 const state = { dashboard: null, modal: null, user: null };
 const API_BASE = (import.meta.env.VITE_API_BASE || import.meta.env.VITE_API_URL || "http://127.0.0.1:8765").replace(/\/$/, "");
 const DOWNLOAD_URL = import.meta.env.VITE_DESKTOP_DOWNLOAD_URL
+  || "/Jarvix.exe";
+const BUILDER_DOWNLOAD_URL = import.meta.env.VITE_BUILDER_DOWNLOAD_URL
   || "/JarvisBuilder.zip";
 const TOKEN_KEY = "jarvix_access_token";
 
@@ -215,6 +217,7 @@ $("#registerForm").addEventListener("submit", event => {
 $("#logoutButton").addEventListener("click", () => logout("Você saiu da sua conta Jarvix."));
 
 $("#desktopDownload").href = DOWNLOAD_URL;
+$("#builderDownload").href = BUILDER_DOWNLOAD_URL;
 
 window.removeItem = async (resource, id) => {
   await api(`/api/${resource}/${id}`, { method: "DELETE" });

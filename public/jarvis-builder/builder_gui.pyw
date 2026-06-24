@@ -165,7 +165,7 @@ class BuilderApp:
                 "main.py",
             ]
             if ICON_PATH.exists():
-                args.insert(5, f"--icon={ICON_PATH}")
+                args[3:3] = [f"--icon={ICON_PATH}"]
                 self._log(f"Icone encontrado: {ICON_PATH}")
             else:
                 self._log("Icone nao encontrado. Gerando sem icone.")
