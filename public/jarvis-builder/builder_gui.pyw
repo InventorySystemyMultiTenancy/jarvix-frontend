@@ -173,6 +173,14 @@ class BuilderApp:
             self._step(88, "Gerando executavel com PyInstaller...", "Aguarde ate terminar.")
             self._run(args, cwd=ROOT)
 
+            env_file = ROOT / ".env"
+            final_env = ROOT / "dist" / "Jarvis" / ".env"
+            if env_file.exists():
+                shutil.copy2(env_file, final_env)
+                self._log(f"Arquivo .env copiado para: {final_env}")
+            else:
+                self._log("Arquivo .env nao encontrado na pasta do Builder. A IA pedira OPENAI_API_KEY ao abrir.")
+
             self._step(100, "Jarvis gerado com sucesso.", str(ROOT / "dist" / "Jarvis"))
             self.messages.put(("done", True))
         except Exception as exc:

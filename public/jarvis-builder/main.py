@@ -14,6 +14,7 @@ import tempfile
 import pygame
 import threading
 import time
+import traceback
 import webbrowser
 import uuid
 import json
@@ -52,9 +53,9 @@ if not GITHUB_TOKEN:
     print("Aviso: GITHUB_TOKEN não encontrado no arquivo. Funções do GitHub não funcionarão.")
 
 if not OPENAI_API_KEY:
-    raise RuntimeError("Defina OPENAI_API_KEY no arquivo .env antes de iniciar o Jarvis legado.")
+    print("Aviso: OPENAI_API_KEY nao encontrada no arquivo .env. Recursos de IA ficarao indisponiveis.")
 
-client = OpenAI(api_key=OPENAI_API_KEY)
+client = OpenAI(api_key=OPENAI_API_KEY) if OPENAI_API_KEY else None
 
 # =========================
 # LOG / DEBUG
@@ -69,6 +70,13 @@ def registrar_erro(origem, erro):
             arquivo.write(f"[{datetime.now().strftime('%d/%m/%Y %H:%M:%S')}] {origem}: {erro}\n")
     except Exception:
         pass
+
+
+def openai_indisponivel():
+    return (
+        "A chave OPENAI_API_KEY nao foi configurada. "
+        "Crie um arquivo .env na pasta do Jarvis com OPENAI_API_KEY=sua_chave para ativar a IA."
+    )
 
 
 # =========================
@@ -491,6 +499,9 @@ def ler_arquivo(nome_repo, caminho_arquivo):
 
 
 def explicar_arquivo(nome_repo, caminho_arquivo):
+    if client is None:
+        return openai_indisponivel()
+
     nome_real, arquivo_encontrado = encontrar_arquivo_semelhante(nome_repo, caminho_arquivo)
 
     if not nome_real:
@@ -745,6 +756,9 @@ def nome_collection(nome_repo):
 
 
 def gerar_embedding(texto):
+    if client is None:
+        raise RuntimeError(openai_indisponivel())
+
     resposta = client.embeddings.create(
         model="text-embedding-3-small",
         input=texto
@@ -825,6 +839,9 @@ def indexar_projeto(nome_repo):
 
 
 def perguntar_projeto(nome_repo, pergunta):
+    if client is None:
+        return openai_indisponivel()
+
     nome_real = resolver_nome_repo(nome_repo)
 
     if not nome_real:
@@ -1151,6 +1168,9 @@ funcoes_disponiveis = {
 def executar_jarvis(mensagem):
     global historico_conversa
 
+    if client is None:
+        return openai_indisponivel()
+
     data_atual = datetime.now().strftime("%d/%m/%Y")
     hora_atual = datetime.now().strftime("%H:%M")
 
@@ -1290,7 +1310,13 @@ PALAVRAS_INICIAR_DIA = [
 ]
 
 recognizer = sr.Recognizer()
-pygame.mixer.init()
+try:
+    pygame.mixer.init()
+    AUDIO_DISPONIVEL = True
+except Exception as erro:
+    AUDIO_DISPONIVEL = False
+    print("Aviso: nao foi possivel iniciar o audio do Jarvis:", erro)
+    registrar_erro("pygame.mixer.init", erro)
 
 parar_fala = False
 falando = False
@@ -1314,6 +1340,9 @@ def falar(texto):
 
     texto = str(texto)
     print("\nJarvis:", texto)
+
+    if not AUDIO_DISPONIVEL:
+        return
 
     parar_fala = False
     falando = True
