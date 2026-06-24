@@ -4,6 +4,7 @@ const API_BASE = (import.meta.env.VITE_API_BASE || import.meta.env.VITE_API_URL 
 const DOWNLOAD_URL = import.meta.env.VITE_DESKTOP_DOWNLOAD_URL
   || "/JarvisBuilder.zip";
 const TOKEN_KEY = "jarvix_access_token";
+const WAKE_WORDS = ["jarvis", "jarvix", "jatrvis", "javis", "jarves", "jarvez", "jarvi"];
 
 const viewTitles = {
   home: ["CENTRAL PESSOAL", "Bom dia, senhor."],
@@ -410,8 +411,13 @@ if (SpeechRecognition) {
   }
 
   function extractJarvixCommand(text) {
-    const match = text.toLowerCase().match(/\b(jarvis|jarvix)\b(.*)$/i);
-    return match ? match[2].trim() : "";
+    const lower = text.toLowerCase();
+    const wake = WAKE_WORDS.find(word => lower.includes(word));
+    if (!wake) return "";
+    const index = lower.indexOf(wake);
+    const before = text.slice(0, index).replace(/^[\s,.!?;:-]+|[\s,.!?;:-]+$/g, "");
+    const after = text.slice(index + wake.length).replace(/^[\s,.!?;:-]+|[\s,.!?;:-]+$/g, "");
+    return after || before || "Sim?";
   }
 
   recognition.onstart = () => {
@@ -446,7 +452,7 @@ if (SpeechRecognition) {
     if (transcript === lastVoiceTranscript) return;
     lastVoiceTranscript = transcript;
     const command = extractJarvixCommand(transcript);
-    if (!command && !/\b(jarvis|jarvix)\b/i.test(transcript)) return;
+    if (!command) return;
     setHearingText("");
     appendChatMessage("user", transcript);
     askJarvix(command || "Sim?", { showUser: false });

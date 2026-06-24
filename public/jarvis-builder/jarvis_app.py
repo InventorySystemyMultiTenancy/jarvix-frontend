@@ -20,6 +20,7 @@ APP_DIR = Path(os.getenv("LOCALAPPDATA", str(Path.home()))) / "Jarvis"
 APP_DIR.mkdir(parents=True, exist_ok=True)
 CONFIG_FILE = APP_DIR / "config.json"
 DEFAULT_CENTRAL_URL = os.getenv("JARVIS_CENTRAL_URL", "http://127.0.0.1:8765").rstrip("/")
+WAKE_WORDS = ("jarvis", "jarvix", "jatrvis", "javis", "jarves", "jarvez", "jarvi")
 
 
 class JarvisClient:
@@ -299,10 +300,12 @@ class JarvisApp:
 
     def extract_command(self, text: str) -> str:
         lower = text.lower()
-        for wake in ("jarvis", "jarvix"):
+        for wake in WAKE_WORDS:
             if wake in lower:
-                index = lower.rfind(wake)
-                return text[index + len(wake):].strip() or "Sim?"
+                index = lower.find(wake)
+                before = text[:index].strip(" ,.!?;:-")
+                after = text[index + len(wake):].strip(" ,.!?;:-")
+                return after or before or "Sim?"
         return ""
 
     def drain_messages(self) -> None:

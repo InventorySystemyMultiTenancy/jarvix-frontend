@@ -1390,6 +1390,12 @@ Regras:
 
 PALAVRAS_ATIVACAO = [
     "jarvis",
+    "jarvix",
+    "jatrvis",
+    "javis",
+    "jarves",
+    "jarvez",
+    "jarvi",
     "jads",
     "chaves",
     "jad",
