@@ -5,10 +5,15 @@ import json
 import os
 from pathlib import Path
 import queue
+import re
 import tempfile
 import threading
+import time
 import tkinter as tk
 from tkinter import messagebox, ttk
+from urllib.parse import quote_plus
+import webbrowser
+from datetime import datetime, timedelta
 
 import edge_tts
 import pygame
@@ -19,6 +24,8 @@ import speech_recognition as sr
 APP_DIR = Path(os.getenv("LOCALAPPDATA", str(Path.home()))) / "Jarvis"
 APP_DIR.mkdir(parents=True, exist_ok=True)
 CONFIG_FILE = APP_DIR / "config.json"
+REMINDERS_FILE = APP_DIR / "reminders.json"
+SCHEDULES_FILE = APP_DIR / "scheduled_actions.json"
 
 
 def app_base_dir() -> Path:
@@ -129,6 +136,7 @@ class JarvisApp:
         self.build_style()
         self.build_ui()
         self.root.after(120, self.drain_messages)
+        threading.Thread(target=self.schedule_loop, daemon=True).start()
         if not self.client.token:
             self.show_login()
         else:
@@ -287,8 +295,145 @@ class JarvisApp:
 
     def send_message(self, message: str) -> None:
         self.add_message("user", message)
+        local_answer = self.handle_local_action(message)
+        if local_answer:
+            self.add_message("bot", local_answer)
+            self.speak(local_answer)
+            return
         self.add_message("bot", "Pensando...")
         threading.Thread(target=self.ask_worker, args=(message,), daemon=True).start()
+
+    def handle_local_action(self, message: str) -> str:
+        text = message.strip()
+        lower = text.lower()
+        run_at = self.parse_schedule_time(text)
+
+        if "whatsapp" in lower or "zap" in lower:
+            number_match = re.search(r"(?:\+?\d[\d\s().-]{7,}\d)", text)
+            text_match = re.search(r"(?:mensagem|texto|dizendo|falar|enviar)\s+(.+?)(?:\s+\b(?:as|às|para|em)\s+\d{1,2}(?::|h)?\d{0,2}\b|$)", text, re.IGNORECASE)
+            number = number_match.group(0) if number_match else ""
+            body = text_match.group(1).strip() if text_match else ""
+            if not number or not body:
+                return "Para WhatsApp, diga o numero e a mensagem. Exemplo: enviar WhatsApp para 5511999999999 mensagem estou chegando as 18:30."
+            url = self.whatsapp_url(number, body)
+            if run_at:
+                self.schedule_action({"type": "whatsapp", "url": url, "run_at": run_at.isoformat(), "label": f"WhatsApp para {number}"})
+                return f"Mensagem agendada para {run_at.strftime('%d/%m/%Y %H:%M')}. No horario, vou abrir o WhatsApp com o texto pronto."
+            webbrowser.open(url)
+            return "Abrindo WhatsApp com a mensagem preenchida."
+
+        if "youtube music" in lower or "youtube música" in lower or "youtube musica" in lower:
+            query = self.extract_music_query(text)
+            return self.play_or_schedule_music(query, "youtube", run_at)
+
+        if any(word in lower for word in ("tocar", "toque", "coloque para tocar", "coloca para tocar", "spotify")):
+            provider = "spotify" if "spotify" in lower else "youtube"
+            query = self.extract_music_query(text) or text
+            return self.play_or_schedule_music(query, provider, run_at)
+
+        if lower.startswith(("abrir ", "abra ")):
+            target = re.sub(r"^(abrir|abra)\s+", "", text, flags=re.IGNORECASE).strip()
+            if target:
+                self.open_site_or_search(target)
+                return f"Abrindo {target}."
+
+        if "lembrete" in lower or "me lembre" in lower or "alerta" in lower:
+            self.save_reminder(text)
+            return "Lembrete anotado localmente. Para data e hora exatas, me diga no formato dia/mes/ano hora:minuto."
+
+        return ""
+
+    def extract_music_query(self, text: str) -> str:
+        query = re.sub(r"\b(jarvis|jarvix|jatrvis|javis|jarves|jarvez|jarvi)\b", "", text, flags=re.IGNORECASE)
+        query = re.sub(r"\b(coloque para tocar|coloca para tocar|tocar|toque|abra|abrir|youtube music|youtube musica|youtube música|no google)\b", "", query, flags=re.IGNORECASE)
+        query = re.sub(r"\bspotify\b", "", query, flags=re.IGNORECASE)
+        query = re.sub(r"\b(?:as|às|para|em)\s+\d{1,2}(?::|h)?\d{0,2}\b", "", query, flags=re.IGNORECASE)
+        return re.sub(r"\s+", " ", query).strip(" ,.!?;:-")
+
+    def open_youtube_music(self, query: str = "") -> None:
+        url = "https://music.youtube.com"
+        if query:
+            url = f"{url}/search?q={quote_plus(query)}"
+        webbrowser.open(url)
+
+    def spotify_url(self, query: str) -> str:
+        return f"https://open.spotify.com/search/{quote_plus(query)}"
+
+    def play_or_schedule_music(self, query: str, provider: str, run_at: datetime | None) -> str:
+        if not query:
+            return "Qual musica, artista ou playlist voce quer tocar?"
+        url = self.spotify_url(query) if provider == "spotify" else f"https://music.youtube.com/search?q={quote_plus(query)}"
+        label = f"{query} no {'Spotify' if provider == 'spotify' else 'YouTube Music'}"
+        if run_at:
+            self.schedule_action({"type": "music", "url": url, "run_at": run_at.isoformat(), "label": label})
+            return f"Musica agendada para {run_at.strftime('%d/%m/%Y %H:%M')}. No horario, vou abrir {label}."
+        webbrowser.open(url)
+        return f"Abrindo {label}."
+
+    def whatsapp_url(self, number: str, message: str) -> str:
+        digits = re.sub(r"\D", "", number)
+        return f"https://wa.me/{digits}?text={quote_plus(message)}"
+
+    def parse_schedule_time(self, text: str) -> datetime | None:
+        lower = text.lower()
+        match = re.search(r"\b(?:as|às|para|em)\s+(\d{1,2})(?::|h)?(\d{2})?\b", lower)
+        if not match:
+            return None
+        now = datetime.now()
+        run_at = now.replace(hour=int(match.group(1)), minute=int(match.group(2) or 0), second=0, microsecond=0)
+        if "amanh" in lower:
+            run_at += timedelta(days=1)
+        elif run_at <= now:
+            run_at += timedelta(days=1)
+        return run_at
+
+    def schedule_action(self, action: dict) -> None:
+        actions = self.load_scheduled_actions()
+        action["id"] = str(time.time())
+        actions.append(action)
+        SCHEDULES_FILE.write_text(json.dumps(actions, ensure_ascii=False, indent=2), encoding="utf-8")
+
+    def load_scheduled_actions(self) -> list[dict]:
+        try:
+            return json.loads(SCHEDULES_FILE.read_text(encoding="utf-8"))
+        except Exception:
+            return []
+
+    def schedule_loop(self) -> None:
+        while True:
+            now = datetime.now()
+            remaining = []
+            for action in self.load_scheduled_actions():
+                try:
+                    run_at = datetime.fromisoformat(action["run_at"])
+                    if run_at <= now:
+                        webbrowser.open(action["url"])
+                        self.messages.put(("answer", f"Executando agendamento: {action.get('label', 'acao programada')}"))
+                    else:
+                        remaining.append(action)
+                except Exception:
+                    continue
+            SCHEDULES_FILE.write_text(json.dumps(remaining, ensure_ascii=False, indent=2), encoding="utf-8")
+            time.sleep(15)
+
+    def open_site_or_search(self, target: str) -> None:
+        lower = target.lower()
+        if lower in {"youtube music", "youtube musica", "youtube música"}:
+            self.open_youtube_music()
+            return
+        if "." in target and " " not in target:
+            url = target if target.startswith(("http://", "https://")) else f"https://{target}"
+        else:
+            url = "https://www.google.com/search?q=" + quote_plus(target)
+        webbrowser.open(url)
+
+    def save_reminder(self, text: str) -> None:
+        try:
+            reminders = json.loads(REMINDERS_FILE.read_text(encoding="utf-8")) if REMINDERS_FILE.exists() else []
+        except Exception:
+            reminders = []
+        reminders.append({"text": text, "created_at": __import__("datetime").datetime.now().isoformat(timespec="seconds")})
+        REMINDERS_FILE.write_text(json.dumps(reminders, ensure_ascii=False, indent=2), encoding="utf-8")
 
     def ask_worker(self, message: str) -> None:
         try:

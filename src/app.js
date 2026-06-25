@@ -5,6 +5,7 @@ const DOWNLOAD_URL = import.meta.env.VITE_DESKTOP_DOWNLOAD_URL
   || "/JarvisBuilder.zip";
 const TOKEN_KEY = "jarvix_access_token";
 const WAKE_WORDS = ["jarvis", "jarvix", "jatrvis", "javis", "jarves", "jarvez", "jarvi"];
+const SCHEDULED_ACTIONS_KEY = "jarvix_scheduled_actions";
 
 const viewTitles = {
   home: ["CENTRAL PESSOAL", "Bom dia, senhor."],
@@ -357,10 +358,115 @@ function setHearingText(text) {
   element.textContent = text ? `Ouvindo: ${text}` : "";
 }
 
+function scheduledActions() {
+  try {
+    return JSON.parse(localStorage.getItem(SCHEDULED_ACTIONS_KEY) || "[]");
+  } catch {
+    return [];
+  }
+}
+
+function saveScheduledActions(items) {
+  localStorage.setItem(SCHEDULED_ACTIONS_KEY, JSON.stringify(items));
+}
+
+function parseScheduleTime(text) {
+  const lower = text.toLowerCase();
+  const match = lower.match(/\b(?:as|às|para|em)\s+(\d{1,2})(?::|h)?(\d{2})?\b/);
+  if (!match) return null;
+  const date = new Date();
+  date.setHours(Number(match[1]), Number(match[2] || "0"), 0, 0);
+  if (lower.includes("amanh")) date.setDate(date.getDate() + 1);
+  if (date.getTime() <= Date.now()) date.setDate(date.getDate() + 1);
+  return date;
+}
+
+function openUrl(url) {
+  window.open(url, "_blank", "noopener");
+}
+
+function whatsappUrl(number, message) {
+  const digits = number.replace(/\D/g, "");
+  return `https://wa.me/${digits}?text=${encodeURIComponent(message)}`;
+}
+
+function musicUrl(query, provider = "youtube") {
+  const encoded = encodeURIComponent(query);
+  if (provider === "spotify") return `https://open.spotify.com/search/${encoded}`;
+  return `https://music.youtube.com/search?q=${encoded}`;
+}
+
+function scheduleBrowserAction(action) {
+  const items = scheduledActions();
+  items.push({ ...action, id: crypto.randomUUID?.() || String(Date.now()) });
+  saveScheduledActions(items);
+}
+
+function runScheduledBrowserActions() {
+  const now = Date.now();
+  const pending = [];
+  for (const action of scheduledActions()) {
+    if (new Date(action.runAt).getTime() <= now) {
+      openUrl(action.url);
+      appendChatMessage("bot", `Executando agendamento: ${action.label}`);
+    } else {
+      pending.push(action);
+    }
+  }
+  saveScheduledActions(pending);
+}
+
+function handleBrowserAction(message) {
+  const lower = message.toLowerCase();
+  const runAt = parseScheduleTime(message);
+
+  if (lower.includes("whatsapp") || lower.includes("zap")) {
+    const number = message.match(/(?:\+?\d[\d\s().-]{7,}\d)/)?.[0] || "";
+    const textMatch = message.match(/(?:mensagem|texto|dizendo|falar|enviar)\s+(.+?)(?:\s+\b(?:as|às|para|em)\s+\d{1,2}(?::|h)?\d{0,2}\b|$)/i);
+    const body = (textMatch?.[1] || "").trim();
+    if (!number || !body) return "Para WhatsApp, diga o número e a mensagem. Exemplo: enviar WhatsApp para 5511999999999 mensagem estou chegando às 18:30.";
+    const url = whatsappUrl(number, body);
+    if (runAt) {
+      scheduleBrowserAction({ type: "whatsapp", url, runAt: runAt.toISOString(), label: `WhatsApp para ${number}` });
+      return `Mensagem agendada para ${runAt.toLocaleString("pt-BR")}. No horário, vou abrir o WhatsApp com o texto pronto.`;
+    }
+    openUrl(url);
+    return "Abrindo WhatsApp com a mensagem preenchida.";
+  }
+
+  if (lower.includes("tocar") || lower.includes("toque") || lower.includes("spotify") || lower.includes("youtube music")) {
+    const provider = lower.includes("spotify") ? "spotify" : "youtube";
+    const query = message
+      .replace(/\b(jarvis|jarvix|jatrvis|javis|jarves|jarvez|jarvi)\b/gi, "")
+      .replace(/\b(tocar|toque|coloque para tocar|coloca para tocar|spotify|youtube music|youtube musica|youtube música)\b/gi, "")
+      .replace(/\b(?:as|às|para|em)\s+\d{1,2}(?::|h)?\d{0,2}\b/gi, "")
+      .trim();
+    if (!query) return "";
+    const url = musicUrl(query, provider);
+    if (runAt) {
+      scheduleBrowserAction({ type: "music", url, runAt: runAt.toISOString(), label: `${query} no ${provider === "spotify" ? "Spotify" : "YouTube Music"}` });
+      return `Música agendada para ${runAt.toLocaleString("pt-BR")}. No horário, vou abrir ${provider === "spotify" ? "Spotify" : "YouTube Music"} com ${query}.`;
+    }
+    openUrl(url);
+    return `Abrindo ${provider === "spotify" ? "Spotify" : "YouTube Music"} com ${query}.`;
+  }
+
+  return "";
+}
+
 async function askJarvix(message, options = {}) {
   const cleanMessage = message.trim();
   if (!cleanMessage) return;
   if (options.showUser !== false) appendChatMessage("user", cleanMessage);
+  const localAction = handleBrowserAction(cleanMessage);
+  if (localAction) {
+    appendChatMessage("bot", localAction);
+    if ("speechSynthesis" in window) {
+      speechSynthesis.cancel();
+      speechSynthesis.speak(new SpeechSynthesisUtterance(localAction));
+    }
+    return;
+  }
   const pending = appendChatMessage("bot", "Pensando...", "pending");
   try {
     const result = await api("/api/assistant/chat", { method: "POST", body: JSON.stringify({ message: cleanMessage }) });
@@ -375,6 +481,8 @@ async function askJarvix(message, options = {}) {
     pending.textContent = "Não consegui responder agora. Verifique a configuração do servidor.";
   }
 }
+
+window.setInterval(runScheduledBrowserActions, 15000);
 
 $("#chatForm").addEventListener("submit", event => {
   event.preventDefault();
