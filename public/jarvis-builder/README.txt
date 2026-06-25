@@ -16,6 +16,8 @@ somente no servidor/backend, nunca no Jarvis.exe.
 O usuario nao precisa editar .env. Na primeira execucao, o Jarvis.exe pede a URL
 da central Jarvis e o login da conta no console. Depois ele salva apenas o token
 em C:\JarvisData\config.json e entra automaticamente nas proximas execucoes.
+Use a URL do backend publicado, por exemplo https://seu-backend.onrender.com.
+http://127.0.0.1:8765 so funciona para desenvolvimento local.
 
 GITHUB_TOKEN e opcional e so deve ser usado se for um token do proprio usuario.
 

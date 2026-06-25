@@ -176,6 +176,9 @@ class BuilderApp:
             else:
                 self._log("Arquivo .env nao encontrado na pasta do Builder. Configure a central Jarvis em dist\\Jarvis\\.env.")
 
+            runtime_env = ROOT / "dist" / "Jarvis" / "jarvis_runtime.env"
+            self._write_runtime_env(env_file, runtime_env)
+
             self._step(100, "Jarvis gerado com sucesso.", str(ROOT / "dist" / "Jarvis"))
             self.messages.put(("done", True))
         except Exception as exc:
@@ -208,6 +211,23 @@ class BuilderApp:
                 continue
             safe_lines.append(line)
         target.write_text("\n".join(safe_lines) + "\n", encoding="utf-8")
+
+    def _write_runtime_env(self, source: Path, target: Path) -> None:
+        central_url = os.getenv("JARVIS_CENTRAL_URL") or os.getenv("VITE_API_BASE") or os.getenv("VITE_API_URL") or ""
+        if source.exists():
+            for line in source.read_text(encoding="utf-8", errors="ignore").splitlines():
+                if "=" not in line:
+                    continue
+                key, value = line.split("=", 1)
+                key = key.strip().upper()
+                if key in {"JARVIS_CENTRAL_URL", "VITE_API_BASE", "VITE_API_URL"} and value.strip():
+                    central_url = value.strip()
+                    break
+        if central_url:
+            target.write_text(f"JARVIS_CENTRAL_URL={central_url.rstrip('/')}\n", encoding="utf-8")
+            self._log(f"URL padrao da central salva em: {target}")
+        else:
+            self._log("URL padrao da central nao configurada. O usuario informara no primeiro login.")
 
     def _run(self, args: list[str], cwd: Path | None = None, check: bool = True) -> int:
         self._log(f"> {' '.join(map(str, args))}")

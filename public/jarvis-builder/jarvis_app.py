@@ -19,7 +19,33 @@ import speech_recognition as sr
 APP_DIR = Path(os.getenv("LOCALAPPDATA", str(Path.home()))) / "Jarvis"
 APP_DIR.mkdir(parents=True, exist_ok=True)
 CONFIG_FILE = APP_DIR / "config.json"
-DEFAULT_CENTRAL_URL = os.getenv("JARVIS_CENTRAL_URL", "http://127.0.0.1:8765").rstrip("/")
+
+
+def app_base_dir() -> Path:
+    import sys
+
+    return Path(sys.executable if getattr(sys, "frozen", False) else __file__).resolve().parent
+
+
+def load_runtime_env() -> dict[str, str]:
+    values: dict[str, str] = {}
+    for path in (app_base_dir() / "jarvis_runtime.env", app_base_dir() / ".env"):
+        if not path.exists():
+            continue
+        for line in path.read_text(encoding="utf-8", errors="ignore").splitlines():
+            if not line.strip() or line.lstrip().startswith("#") or "=" not in line:
+                continue
+            key, value = line.split("=", 1)
+            values[key.strip()] = value.strip()
+    return values
+
+
+RUNTIME_ENV = load_runtime_env()
+DEFAULT_CENTRAL_URL = (
+    RUNTIME_ENV.get("JARVIS_CENTRAL_URL")
+    or os.getenv("JARVIS_CENTRAL_URL")
+    or "http://127.0.0.1:8765"
+).rstrip("/")
 WAKE_WORDS = ("jarvis", "jarvix", "jatrvis", "javis", "jarves", "jarvez", "jarvi")
 
 
@@ -189,7 +215,8 @@ class JarvisApp:
     def show_login(self) -> None:
         dialog = tk.Toplevel(self.root)
         dialog.title("Conectar Jarvis")
-        dialog.geometry("440x300")
+        dialog.geometry("560x430")
+        dialog.minsize(520, 400)
         dialog.configure(bg="#0b1815")
         dialog.transient(self.root)
         dialog.grab_set()
@@ -197,6 +224,12 @@ class JarvisApp:
         frame = ttk.Frame(dialog, style="Panel.TFrame", padding=20)
         frame.pack(fill="both", expand=True)
         ttk.Label(frame, text="Conectar conta Jarvis", style="PanelMuted.TLabel", font=("Segoe UI", 14, "bold")).pack(anchor="w", pady=(0, 14))
+        ttk.Label(
+            frame,
+            text="Use a URL do backend publicado. 127.0.0.1 funciona apenas se o servidor estiver rodando neste computador.",
+            style="PanelMuted.TLabel",
+            wraplength=500,
+        ).pack(anchor="w", pady=(0, 10))
 
         url = self.login_field(frame, "URL da central", self.client.central_url)
         email = self.login_field(frame, "E-mail", self.client.email)
@@ -204,14 +237,27 @@ class JarvisApp:
 
         def submit() -> None:
             try:
-                self.client.login(url.get().strip(), email.get().strip(), password.get())
+                central_url = url.get().strip()
+                if central_url.startswith("http://127.0.0.1") or central_url.startswith("http://localhost"):
+                    if not messagebox.askyesno(
+                        "Jarvis",
+                        "A URL informada e local. Ela so funciona se o backend estiver aberto neste computador. Deseja continuar?",
+                        parent=dialog,
+                    ):
+                        return
+                self.client.login(central_url, email.get().strip(), password.get())
                 self.status_text.set("Jarvis online")
                 self.add_message("system", "Conta conectada com sucesso.")
                 dialog.destroy()
             except Exception as exc:
-                messagebox.showerror("Jarvis", f"Nao foi possivel conectar:\n{exc}")
+                messagebox.showerror("Jarvis", f"Nao foi possivel conectar:\n{exc}", parent=dialog)
 
-        ttk.Button(frame, text="Conectar", style="Primary.TButton", command=submit).pack(fill="x", pady=(16, 0))
+        buttons = ttk.Frame(frame, style="Panel.TFrame")
+        buttons.pack(fill="x", side="bottom", pady=(18, 0))
+        ttk.Button(buttons, text="Conectar", style="Primary.TButton", command=submit).pack(side="right", ipadx=18)
+        ttk.Button(buttons, text="Cancelar", command=dialog.destroy).pack(side="right", padx=(0, 10), ipadx=14)
+        dialog.bind("<Return>", lambda _: submit())
+        password.focus_set()
 
     def login_field(self, parent: ttk.Frame, label: str, value: str, show: str = "") -> tk.Entry:
         ttk.Label(parent, text=label, style="PanelMuted.TLabel").pack(anchor="w", pady=(8, 4))
